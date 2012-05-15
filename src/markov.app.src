@@ -1,0 +1,9 @@
+%% -*- mode: erlang -*-
+{application, markov,
+ [{description, ""},
+  {vsn, git},
+  {registered, []},
+  {applications, [kernel,
+                  stdlib]},
+  %%{mod, {markov_app, []}}
+  {env, []}]}.

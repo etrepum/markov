@@ -1,0 +1,6 @@
+/.eunit
+/ebin
+/TEST-*.xml
+/erl_crash.dump
+/deps
+/doc
