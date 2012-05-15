@@ -1,5 +1,5 @@
 -module(markov).
--export([new/0, input/2, fetch/2]).
+-export([new/0, input/2, fetch/2, fetch/3]).
 
 new() ->
     append({start, start}, stop, gb_trees:empty()).
@@ -20,8 +20,15 @@ append(K, V, T) ->
             gb_trees:update(K, {1 + Count, [V | Others]}, T)
     end.
 
+fetch([], Max, T) ->
+    fetch([start, start], Max, T);
+fetch([A], Max, T) ->
+    fetch([start, A], Max, T);
+fetch([A, B], Max, T) ->
+    fetch({A, B}, erlang:now(), Max, T).
+
 fetch(Max, T) ->
-    fetch({start, start}, erlang:now(), Max, T).
+    fetch([], Max, T).
 
 fetch(K={_A, B}, RState, Max, T) when Max > 0 ->
     case choose(gb_trees:lookup(K, T), RState) of
