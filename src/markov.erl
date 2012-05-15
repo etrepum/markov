@@ -1,10 +1,27 @@
 -module(markov).
--export([new/0, input/2, fetch/2, fetch/3]).
+-export([new/0, input/2, output/1]).
+
+-define(WORD_MAX, 100).
 
 new() ->
-    append({start, start}, stop, gb_trees:empty()).
+    gb_trees:empty().
 
-input(L, T) ->
+input(B, T) when is_binary(B) ->
+    input_tokens([Word || Word <- re:split(B, "\\s+", [{return, binary}]),
+                          Word =/= <<" ">>],
+          T).
+
+output(T) ->
+    case (<<<<" ", W/binary>> || W <- fetch(?WORD_MAX, T)>>) of
+        <<" ", String/binary>> ->
+            String;
+        <<>> ->
+            <<>>
+    end.
+
+input_tokens([], T) ->
+    T;
+input_tokens(L, T) ->
     input(L, {start, start}, T).
 
 input([C | Rest], {A, B}, T) ->
@@ -15,20 +32,31 @@ input([], {A, B}, T) ->
 append(K, V, T) ->
     case gb_trees:lookup(K, T) of
         none ->
-            gb_trees:insert(K, {1, [V]}, T);
-        {value, {Count, Others}} ->
-            gb_trees:update(K, {1 + Count, [V | Others]}, T)
+            gb_trees:insert(K, {1, increment(V, gb_trees:empty())}, T);
+        {value, {Count, SubT}} ->
+            gb_trees:update(K, {1 + Count, increment(V, SubT)}, T)
     end.
 
-fetch([], Max, T) ->
-    fetch([start, start], Max, T);
-fetch([A], Max, T) ->
-    fetch([start, A], Max, T);
-fetch([A, B], Max, T) ->
-    fetch({A, B}, erlang:now(), Max, T).
+increment(K, SubT) ->
+    case gb_trees:lookup(K, SubT) of
+        none ->
+            gb_trees:insert(K, 1, SubT);
+        {value, N} ->
+            gb_trees:update(K, 1 + N, SubT)
+    end.
 
 fetch(Max, T) ->
     fetch([], Max, T).
+
+fetch(L, Max, T) ->
+    fetch(case L of
+              [] -> {start, start};
+              [A] -> {start, A};
+              [A, B] -> {A, B}
+          end,
+          erlang:now(),
+          Max,
+          T).
 
 fetch(K={_A, B}, RState, Max, T) when Max > 0 ->
     case choose(gb_trees:lookup(K, T), RState) of
@@ -38,8 +66,13 @@ fetch(K={_A, B}, RState, Max, T) when Max > 0 ->
             [C | fetch({B, C}, RState1, Max - 1, T)]
     end.
 
-choose({value, {Count, L}}, RState) ->
+choose({value, {Count, SubT}}, RState) ->
     {N, RState1} = random:uniform_s(Count, RState),
-    {lists:nth(N, L), RState1};
+    {choose_nth(N, gb_trees:next(gb_trees:iterator(SubT))), RState1};
 choose(none, RState) ->
     {stop, RState}.
+
+choose_nth(N, {_K, V, Iter}) when N > V ->
+    choose_nth(N - V, gb_trees:next(Iter));
+choose_nth(_N, {K, _V, _Iter}) ->
+    K.
