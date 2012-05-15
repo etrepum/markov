@@ -1,10 +1,16 @@
 -module(markov).
--export([new/0, input/2, output/1]).
+-export([new/0, input/2, output/1, from_orddict/1, to_orddict/1]).
 
 -define(WORD_MAX, 100).
 
 new() ->
     gb_trees:empty().
+
+from_orddict(L) ->
+    gb_trees:from_orddict([{K, subtree_from_orddict(V)} || {K, V} <- L]).
+
+to_orddict(T) ->
+    to_orddict_iter(gb_trees:next(gb_trees:iterator(T))).
 
 input(B, T) when is_binary(B) ->
     input_tokens([Word || Word <- re:split(B, "\\s+", [{return, binary}]),
@@ -76,3 +82,20 @@ choose_nth(N, {_K, V, Iter}) when N > V ->
     choose_nth(N - V, gb_trees:next(Iter));
 choose_nth(_N, {K, _V, _Iter}) ->
     K.
+
+subtree_from_orddict(L) ->
+    T = gb_trees:from_orddict(L),
+    {subtree_count(gb_trees:next(gb_trees:iterator(T)), 0), T}.
+
+subtree_count(none, Acc) ->
+    Acc;
+subtree_count({_K, V, Iter}, Acc) ->
+    subtree_count(gb_trees:next(Iter), V + Acc).
+
+to_orddict_iter(none) ->
+    [];
+to_orddict_iter({K, V, Iter}) ->
+    [{K, to_orddict_subtree(V)} | to_orddict_iter(gb_trees:next(Iter))].
+
+to_orddict_subtree({_Count, T}) ->
+    gb_trees:to_list(T).
