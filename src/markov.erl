@@ -1,15 +1,19 @@
 -module(markov).
--export([new/0, input/2, output/1, from_orddict/1, to_orddict/1]).
+-export([new/0, input/2, output/1, output/2, from_list/1, to_list/1]).
 
 -define(WORD_MAX, 100).
 
 new() ->
     gb_trees:empty().
 
-from_orddict(L) ->
-    gb_trees:from_orddict([{K, subtree_from_orddict(V)} || {K, V} <- L]).
+from_list(L) ->
+    lists:foldl(fun ({K, V}, T) ->
+                        gb_trees:insert(K, subtree_from_list(V), T)
+                end,
+                gb_trees:empty(),
+                L).
 
-to_orddict(T) ->
+to_list(T) ->
     to_orddict_iter(gb_trees:next(gb_trees:iterator(T))).
 
 input(B, T) when is_binary(B) ->
@@ -18,9 +22,12 @@ input(B, T) when is_binary(B) ->
           T).
 
 output(T) ->
-    case (<<<<" ", W/binary>> || W <- fetch(?WORD_MAX, T)>>) of
+    output([], T).
+
+output(L, T) ->
+    case (<<<<" ", W/binary>> || W <- fetch(L, ?WORD_MAX, T)>>) of
         <<" ", String/binary>> ->
-            String;
+            redact(String);
         <<>> ->
             <<>>
     end.
@@ -51,18 +58,18 @@ increment(K, SubT) ->
             gb_trees:update(K, 1 + N, SubT)
     end.
 
-fetch(Max, T) ->
-    fetch([], Max, T).
-
 fetch(L, Max, T) ->
-    fetch(case L of
-              [] -> {start, start};
-              [A] -> {start, A};
-              [A, B] -> {A, B}
-          end,
-          erlang:now(),
-          Max,
-          T).
+    {Pair, Next} = case L of
+                       [] -> {{start, start}, undefined};
+                       [A] -> {{start, A}, []};
+                       [A, B | _] -> {{A, B}, [A]}
+                   end,
+    case fetch(Pair, erlang:now(), Max, T) of
+        [] when Next =/= undefined ->
+            fetch(Next, Max, T);
+        Res ->
+            Res
+    end.
 
 fetch(K={_A, B}, RState, Max, T) when Max > 0 ->
     case choose(gb_trees:lookup(K, T), RState) of
@@ -83,14 +90,12 @@ choose_nth(N, {_K, V, Iter}) when N > V ->
 choose_nth(_N, {K, _V, _Iter}) ->
     K.
 
-subtree_from_orddict(L) ->
-    T = gb_trees:from_orddict(L),
-    {subtree_count(gb_trees:next(gb_trees:iterator(T)), 0), T}.
-
-subtree_count(none, Acc) ->
-    Acc;
-subtree_count({_K, V, Iter}, Acc) ->
-    subtree_count(gb_trees:next(Iter), V + Acc).
+subtree_from_list(L) ->
+    lists:foldl(fun ({K, V}, {C, T}) ->
+                        {V + C, gb_trees:insert(K, V, T)}
+                end,
+                {0, gb_trees:empty()},
+                L).
 
 to_orddict_iter(none) ->
     [];
@@ -99,3 +104,14 @@ to_orddict_iter({K, V, Iter}) ->
 
 to_orddict_subtree({_Count, T}) ->
     gb_trees:to_list(T).
+
+redact(S) ->
+    re:replace(
+      S,
+      <<$(,
+        "\\b\\d{3}[ .-]\\d{4}\\b", $|,
+        "\\b[iaeou][thor]?[aeiou][cartman]?[duh]?[rutoh][rutoh]mochi\\b", $|,
+        "\\b(?:https?://)?[^/]*mochi[^/]*/admin(?:/[^\s]*)?\\b",
+        $)>>,
+      <<"[REDACTED]">>,
+      [global, {return, binary}]).
