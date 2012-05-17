@@ -1,20 +1,21 @@
 -module(markov).
--export([new/0, input/2, output/1, output/2, from_list/1, to_list/1]).
+-export([new/0]).
+-export([new/1, input/2, output/1, output/2, from_list/2, to_list/1]).
 
 -define(WORD_MAX, 100).
+-define(DEFAULT_STORAGE, markov_ets).
 
 new() ->
-    gb_trees:empty().
+    new(?DEFAULT_STORAGE).
 
-from_list(L) ->
-    lists:foldl(fun ({K, V}, T) ->
-                        gb_trees:insert(K, subtree_from_list(V), T)
-                end,
-                gb_trees:empty(),
-                L).
+new(M) ->
+    {M, M:new()}.
 
-to_list(T) ->
-    to_orddict_iter(gb_trees:next(gb_trees:iterator(T))).
+from_list(L, {M, T}) ->
+    {M, M:from_list(L, T)}.
+
+to_list({M, T}) ->
+    M:to_list(T).
 
 input(B, T) when is_binary(B) ->
     input_tokens([Word || Word <- re:split(B, "\\s+", [{return, binary}]),
@@ -42,21 +43,8 @@ input([C | Rest], {A, B}, T) ->
 input([], {A, B}, T) ->
     append({A, B}, stop, T).
 
-append(K, V, T) ->
-    case gb_trees:lookup(K, T) of
-        none ->
-            gb_trees:insert(K, {1, increment(V, gb_trees:empty())}, T);
-        {value, {Count, SubT}} ->
-            gb_trees:update(K, {1 + Count, increment(V, SubT)}, T)
-    end.
-
-increment(K, SubT) ->
-    case gb_trees:lookup(K, SubT) of
-        none ->
-            gb_trees:insert(K, 1, SubT);
-        {value, N} ->
-            gb_trees:update(K, 1 + N, SubT)
-    end.
+append(K, V, {M, T}) ->
+    {M, M:append(K, V, T)}.
 
 fetch(L, Max, T) ->
     {Pair, Next} = case L of
@@ -71,39 +59,21 @@ fetch(L, Max, T) ->
             Res
     end.
 
-fetch(K={_A, B}, RState, Max, T) when Max > 0 ->
-    case choose(gb_trees:lookup(K, T), RState) of
+fetch(K={_A, B}, RState, Max, T={M, MT}) when Max > 0 ->
+    case choose(M:lookup(K, MT), RState, M) of
         {stop, _} ->
             [];
         {C, RState1} ->
             [C | fetch({B, C}, RState1, Max - 1, T)]
-    end.
+    end;
+fetch(_K, _RState, _Max, _T) ->
+    [].
 
-choose({value, {Count, SubT}}, RState) ->
+choose({value, {Count, SubT}}, RState, M) ->
     {N, RState1} = random:uniform_s(Count, RState),
-    {choose_nth(N, gb_trees:next(gb_trees:iterator(SubT))), RState1};
-choose(none, RState) ->
+    {M:choose_nth(N, SubT), RState1};
+choose(none, RState, _M) ->
     {stop, RState}.
-
-choose_nth(N, {_K, V, Iter}) when N > V ->
-    choose_nth(N - V, gb_trees:next(Iter));
-choose_nth(_N, {K, _V, _Iter}) ->
-    K.
-
-subtree_from_list(L) ->
-    lists:foldl(fun ({K, V}, {C, T}) ->
-                        {V + C, gb_trees:insert(K, V, T)}
-                end,
-                {0, gb_trees:empty()},
-                L).
-
-to_orddict_iter(none) ->
-    [];
-to_orddict_iter({K, V, Iter}) ->
-    [{K, to_orddict_subtree(V)} | to_orddict_iter(gb_trees:next(Iter))].
-
-to_orddict_subtree({_Count, T}) ->
-    gb_trees:to_list(T).
 
 redact(S) ->
     re:replace(
