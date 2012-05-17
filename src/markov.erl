@@ -1,15 +1,20 @@
 -module(markov).
--export([new/0]).
--export([new/1, input/2, output/1, output/2, from_list/2, to_list/1]).
+-export([new/0, new/1, new/2]).
+-export([input/2, output/1, output/2, from_list/2, to_list/1]).
 
 -define(WORD_MAX, 100).
 -define(DEFAULT_STORAGE, markov_ets).
 
 new() ->
-    new(?DEFAULT_STORAGE).
+    new(?DEFAULT_STORAGE, []).
 
-new(M) ->
-    {M, M:new()}.
+new(M) when is_atom(M) ->
+    new(M, []);
+new(L) when is_list(L) ->
+    new(?DEFAULT_STORAGE, L).
+
+new(M, Opts) ->
+    {M, M:new(Opts)}.
 
 from_list(L, {M, T}) ->
     {M, M:from_list(L, T)}.

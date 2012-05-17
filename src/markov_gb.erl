@@ -1,14 +1,11 @@
 -module(markov_gb).
--export([new/0, from_list/1, from_list/2, to_list/1, append/3, lookup/2,
+-export([new/1, from_list/2, to_list/1, append/3, lookup/2,
          choose_nth/2]).
 
 -define(WORD_MAX, 100).
 
-new() ->
+new([]) ->
     gb_trees:empty().
-
-from_list(L) ->
-    from_list(L, new()).
 
 from_list(L, EmptyT) ->
     lists:foldl(fun ({K, V}, T) ->
