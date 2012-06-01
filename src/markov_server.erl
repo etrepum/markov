@@ -1,12 +1,22 @@
 -module(markov_server).
 -behaviour(gen_server).
 
+-export([input/1, output/1, output/0]).
 -export([start_link/1, start/1]).
 
 -export([code_change/3, handle_call/3, handle_cast/2, handle_info/2,
          init/1, terminate/2]).
 
--record(state, {}).
+-record(state, {t :: term()}).
+
+output() ->
+    output([]).
+
+output(L) ->
+    gen_server:call(?MODULE, {output, L}).
+
+input(B) ->
+    ok = gen_server:cast(?MODULE, {input, B}).
 
 start_link(Args) ->
     gen_server:start_link(?MODULE, Args, []).
@@ -15,14 +25,18 @@ start(Args) ->
     gen_server:start(?MODULE, Args, []).
 
 init([]) ->
-    {ok, #state{}}.
+    {ok, #state{t=markov:new(markov_cstree)}}.
 
+handle_cast({input, B}, S=#state{t=T}) ->
+    {noreply, S#state{t=markov:input(B, T)}};
 handle_cast(_Req, State) ->
     {noreply, State}.
 
 handle_info(_Req, State) ->
     {noreply, State}.
 
+handle_call({output, L}, _From, S=#state{t=T}) ->
+    {reply, markov:output(L, T), S};
 handle_call(_Req, _From, State) ->
     {reply, ignored, State}.
 
