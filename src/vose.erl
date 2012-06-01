@@ -8,21 +8,26 @@
 %%   http://alaska-kamtchatka.blogspot.com/2011/12/voses-alias-method.html
 %%
 -module(vose).
--export([new/1, choose/2]).
+-export([new/1, choose/2, from_fold/4]).
 
 new(Pairs=[_|_]) ->
     {Len, Sum} = lists:foldl(
                    fun ({_, Freq}, {N, Acc}) -> {1 + N, Freq + Acc} end,
                    {0, 0},
                    Pairs),
-    init(partition(Pairs, Sum, Len), array:new(Len)).
+    from_fold(Len, Sum, fun lists:foldl/3, Pairs).
+
+from_fold(Len, Sum, Fold, L) ->
+    init(partition(Len, Sum, Fold, L), array:new(Len)).
 
 choose(Random, Vose) ->
+    %% Cleverly use the integer part (J) as the die roll
+    %% and the fractional part (U - J) as the weighted
+    %% coin flip.
     U = Random * array:size(Vose),
     J = trunc(U),
-    P = U - J,
     case array:get(J, Vose) of
-        {Prob, Item, _Alias} when P =< Prob ->
+        {Prob, Item, _Alias} when (U - J) =< Prob ->
             Item;
         {_Prob, _Item, Alias} ->
             Alias
@@ -48,7 +53,7 @@ init({Small, Large}, Prob) ->
                 Prob,
                 lists:append(Small, Large)).
 
-partition(Pairs, Sum, Len) ->
+partition(Len, Sum, Fold, L) ->
     Scale = Len / Sum,
     Cutoff = Sum / Len,
     F = fun ({Item, Freq}, {N, {Small, Large}}) ->
@@ -61,5 +66,5 @@ partition(Pairs, Sum, Len) ->
                          {[{N, Weight, Item} | Small], Large}
                  end}
         end,
-    {_, Worklists} = lists:foldl(F, {0, {[], []}}, Pairs),
+    {_, Worklists} = Fold(F, {0, {[], []}}, L),
     Worklists.
