@@ -1,9 +1,12 @@
 -module(markov).
--export([new/0, new/1, new/2]).
+-export([new/0, new/1, new/2, start/0]).
 -export([input/2, output/1, output/2, from_list/2, to_list/1]).
 
 -define(WORD_MAX, 100).
 -define(DEFAULT_STORAGE, markov_ets).
+
+start() ->
+    application:start(markov).
 
 new() ->
     new(?DEFAULT_STORAGE, []).

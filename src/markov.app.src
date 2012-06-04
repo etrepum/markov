@@ -2,8 +2,8 @@
 {application, markov,
  [{description, ""},
   {vsn, git},
-  {registered, []},
+  {registered, [markov_server, markov_sup]},
   {applications, [kernel,
                   stdlib]},
-  %%{mod, {markov_app, []}}
+  {mod, {markov_app, []}},
   {env, []}]}.
