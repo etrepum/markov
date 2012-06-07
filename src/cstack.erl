@@ -27,14 +27,14 @@ increment(K, Inc, {Total, KeyCount, L}) ->
     end.
 
 -spec to_list(cstack(T)) -> [{T, non_neg_integer()}].
-to_list({_Total, L}) ->
+to_list({_Total, _KC, L}) ->
     L.
 
 -spec from_list([{T, non_neg_integer()}]) -> cstack(T).
 from_list(L) ->
     %% Sum and reverse the value sorted list.
     lists:foldl(
-      fun (P={_K, V}, {T, Acc}) -> {V + T, [P | Acc]} end,
+      fun (P={_K, V}, {T, KC, Acc}) -> {V + T, 1 + KC, [P | Acc]} end,
       new(),
       lists:keysort(2, L)).
 
