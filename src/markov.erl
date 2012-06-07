@@ -25,15 +25,20 @@ from_list(L, {M, T}) ->
 to_list({M, T}) ->
     M:to_list(T).
 
+tokenize(B) ->
+    [Word || Word <- re:split(B, "\\s+", [{return, binary}]),
+             Word =/= <<" ">>].
+
 input(B, T) when is_binary(B) ->
-    input_tokens([Word || Word <- re:split(B, "\\s+", [{return, binary}]),
-                          Word =/= <<" ">>],
-          T).
+    input_tokens(tokenize(B), T).
 
 output(T) ->
-    output([], T).
+    output_tokens([], T).
 
-output(L, T) ->
+output(B, T) when is_binary(B) ->
+    output_tokens(tokenize(B), T).
+
+output_tokens(L, T) ->
     case (<<<<" ", W/binary>> || W <- fetch(L, ?WORD_MAX, T)>>) of
         <<" ", String/binary>> ->
             redact(String);

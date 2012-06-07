@@ -21,7 +21,7 @@ input(B) ->
     ok = gen_server:cast(?MODULE, {input, B}).
 
 start_link() ->
-    Args = [{K, V} || K <- [module, etf],
+    Args = [{K, V} || K <- [module, etf, opts],
                       {ok, V} <- [application:get_env(?APP, K)]],
     gen_server:start_link({local, ?MODULE}, ?MODULE, Args, []).
 
@@ -32,8 +32,9 @@ start(Args) ->
     gen_server:start(?MODULE, Args, []).
 
 init(Args) ->
-    Mod = proplists:get_value(module, Args, markov_cstack),
-    T = markov:new(Mod),
+    T = markov:new(
+          proplists:get_value(module, Args, markov_cstack),
+          proplists:get_value(opts, Args, [])),
     T1 = case proplists:get_value(etf, Args) of
              undefined ->
                  T;
@@ -51,8 +52,8 @@ handle_cast(_Req, State) ->
 handle_info(_Req, State) ->
     {noreply, State}.
 
-handle_call({output, L}, _From, S=#state{t=T}) ->
-    {reply, markov:output(L, T), S};
+handle_call({output, B}, _From, S=#state{t=T}) ->
+    {reply, markov:output(B, T), S};
 handle_call(_Req, _From, State) ->
     {reply, ignored, State}.
 

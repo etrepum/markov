@@ -3,6 +3,7 @@
 -module(cstack).
 
 -type(cstack(T) :: {Total :: non_neg_integer(),
+                    KeyCount :: non_neg_integer(),
                     [{T, Count :: non_neg_integer()}]}).
 
 -export([new/0, increment/2, increment/3, total/1,
@@ -10,15 +11,20 @@
 
 -spec new() -> cstack(_).
 new() ->
-    {0, []}.
+    {0, 0, []}.
 
 -spec increment({T, non_neg_integer()}, cstack(T)) -> cstack(T).
 increment({K, Inc}, Stack) ->
     increment(K, Inc, Stack).
 
 -spec increment(T, non_neg_integer(), cstack(T)) -> cstack(T).
-increment(K, Inc, {Total, L}) ->
-    {Inc + Total, inc(K, Inc, L)}.
+increment(K, Inc, {Total, KeyCount, L}) ->
+    case lists:keyfind(K, 1, L) of
+        {_, N} ->
+            {Inc + Total, KeyCount, insort(K, Inc + N, true, L)};
+        false ->
+            {Inc + Total, 1 + KeyCount, insort(K, Inc, false, L)}
+    end.
 
 -spec to_list(cstack(T)) -> [{T, non_neg_integer()}].
 to_list({_Total, L}) ->
@@ -33,11 +39,11 @@ from_list(L) ->
       lists:keysort(2, L)).
 
 -spec total(cstack(_)) -> non_neg_integer().
-total({Total, _L}) ->
+total({Total, _KeyCount, _L}) ->
     Total.
 
 -spec seek(non_neg_integer(), cstack(T)) -> T.
-seek(N, {Total, L}) when N < Total ->
+seek(N, {Total, _KeyCount, L}) when N < Total ->
     seek2(N, L).
 
 seek2(N, [{K, V} | Rest]) ->
@@ -46,14 +52,6 @@ seek2(N, [{K, V} | Rest]) ->
             seek2(N1, Rest);
         _ ->
             K
-    end.
-
-inc(K, Inc, L) ->
-    case lists:keyfind(K, 1, L) of
-        {_, N} ->
-            insort(K, Inc + N, true, L);
-        false ->
-            insort(K, Inc, false, L)
     end.
 
 insort(K, V, Remove, [P={_K, V1} | T]) when V < V1 ->
