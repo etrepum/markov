@@ -6,4 +6,5 @@
   {applications, [kernel,
                   stdlib]},
   {mod, {markov_app, []}},
-  {env, []}]}.
+  {env, [{nick, <<"antihector">>},
+         {channels, [<<"#mochialumni">>]}]}]}.

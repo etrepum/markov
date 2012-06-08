@@ -23,5 +23,6 @@ start_link() ->
 %% ===================================================================
 
 init([]) ->
-    Children = [?CHILD(markov_server, worker)],
+    Children = [?CHILD(markov_server, worker),
+                ?CHILD(min_irc, worker)],
     {ok, {{one_for_one, 5, 10}, Children}}.

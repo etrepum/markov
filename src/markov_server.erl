@@ -2,7 +2,7 @@
 -behaviour(gen_server).
 
 -export([input/1, output/1, output/0]).
--export([start_link/0, start_link/1, start/1]).
+-export([start/0, start_link/0, start_link/1]).
 -export([checkpoint_async/2]).
 -export([write_count/0]).
 
@@ -32,16 +32,18 @@ write_count() ->
     gen_server:call(?MODULE, write_count).
 
 start_link() ->
-    Args = [{K, V} || K <- [module, etf, opts, log_name, log_file,
-                            checkpoint_writes],
-                      {ok, V} <- [application:get_env(?APP, K)]],
-    gen_server:start_link({local, ?MODULE}, ?MODULE, Args, []).
+    start_link([]).
 
-start_link(Args) ->
-    gen_server:start_link(?MODULE, Args, []).
+app_args() ->
+    [{K, V} || K <- [module, etf, opts, log_name, log_file,
+                     checkpoint_writes],
+               {ok, V} <- [application:get_env(?APP, K)]].
 
-start(Args) ->
-    gen_server:start(?MODULE, Args, []).
+start_link([]) ->
+    gen_server:start_link({local, ?MODULE}, ?MODULE, app_args(), []).
+
+start() ->
+    gen_server:start({local, ?MODULE}, ?MODULE, app_args(), []).
 
 init(Args) ->
     NewArgs = [proplists:get_value(module, Args, markov_cstack),
@@ -84,7 +86,7 @@ handle_info({'DOWN', MRef, _Type, _Obj, _Info},
             State=#state{checkpoint_monitor=MRef,
                          writes=W,
                          log_file=LogFile}) ->
-    error_logger:info_msg("~s: Checkpoint of ~p finished",
+    error_logger:info_msg("~s: Checkpoint of ~p finished~n",
                           [?MODULE, LogFile]),
     {noreply,
      maybe_checkpoint_log(
@@ -132,14 +134,14 @@ read_any(ETF, S=#state{log=Log, log_file=LogFile}) ->
        end,
        fun (SAcc) -> read_etf(ETF, SAcc) end,
        fun ({S0, Acc}) ->
-               error_logger:info_msg("~s: Starting a new log from scratch",
+               error_logger:info_msg("~s: Starting a new log from scratch~n",
                                      [?MODULE]),
                {checkpoint_log(from_list([], S0)), Acc} end],
       {S, []}).
 
 read_log(Log, SAcc) ->
     {_K, LogFile} = lists:keyfind(file, 1, disk_log:info(Log)),
-    error_logger:info_msg("~s: Reading log ~p", [?MODULE, LogFile]),
+    error_logger:info_msg("~s: Reading log ~p~n", [?MODULE, LogFile]),
     read_chunk(Log, disk_log:chunk(Log, start), SAcc).
 
 try_read([F | Rest], SAcc) ->
@@ -148,7 +150,7 @@ try_read([F | Rest], SAcc) ->
             try_read(Rest, SAcc1);
         {S0, Acc} ->
             {S1, []} = lists:foldl(fun chunk_fold/2, {S0, []}, Acc),
-            error_logger:info_msg("~s: Initialized", [?MODULE]),
+            error_logger:info_msg("~s: Initialized~n", [?MODULE]),
             S1
     end.
 
@@ -165,7 +167,7 @@ read_chunk(_Log, eof, SAcc) ->
 read_etf(undefined, SAcc) ->
     SAcc;
 read_etf(FName, {S, Acc}) ->
-    error_logger:info_msg("~s: Reading ETF ~p", [?MODULE, FName]),
+    error_logger:info_msg("~s: Reading ETF ~p~n", [?MODULE, FName]),
     {ok, B} = file:read_file(FName),
     {checkpoint_log(from_list(binary_to_term(B), S)), Acc}.
 
@@ -191,7 +193,7 @@ maybe_checkpoint_log(S) ->
 
 checkpoint_log(S=#state{log_file=LogFile, log=Log, t=T,
                         checkpoint_monitor=undefined}) ->
-    error_logger:info_msg("~s: Checkpoint of ~p starting",
+    error_logger:info_msg("~s: Checkpoint of ~p starting~n",
                           [?MODULE, LogFile]),
     disk_log:reopen(Log, LogFile ++ ".prev"),
     MRef = monitor(process, spawn_link(?MODULE, checkpoint_async, [Log, T])),
