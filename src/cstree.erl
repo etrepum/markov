@@ -8,7 +8,7 @@
                          TotalCount :: non_neg_integer()}).
 
 -type(cstree(T) :: empty | cstree_node(T)).
--export([new/0, increment/2, increment/3, total/1, count/1,
+-export([new/0, increment/2, increment/3, total/1,
          from_list/1, to_list/1, seek/2]).
 -define(E, empty).
 
@@ -42,12 +42,6 @@ increment(Elem, Inc, T) ->
 total({_Left, _Right, _Elem, _ElemCount, Total}) ->
     Total;
 total(?E) ->
-    0.
-
--spec count(cstree(_)) -> non_neg_integer().
-count({_Left, _Right, _Elem, ElemCount, _Total}) ->
-    ElemCount;
-count(?E) ->
     0.
 
 -spec seek(non_neg_integer(), cstree_node(T)) -> T.
